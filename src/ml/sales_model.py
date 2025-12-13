@@ -37,7 +37,7 @@ def train_models():
     print("Random Forest RMSE:", mean_squared_error(y_test, y_pred_rf, squared=False))
     print("Random Forest R2:", r2_score(y_test, y_pred_rf))
 
-    models_path = Path(__file__).resolve().parents[1] / "models"
+    models_path = Path(__file__).resolve().parents[2] / "models"
     models_path.mkdir(parents=True, exist_ok=True)
 
     # Save for use
