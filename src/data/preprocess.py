@@ -13,6 +13,7 @@ def preprocess_sales_data(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.copy()
 
+    df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
     df['order_year'] = df['order_date'].dt.year
     df['order_month'] = df['order_date'].dt.month
     df['order_quarter'] = df['order_date'].dt.quarter
