@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+env/
+venv/
+.Rdata
+
+# Jupyter
+.ipynb_checkpoints
+
+# Data
+data/processed/
+models/
+
+# VS Code
+.vscode/
