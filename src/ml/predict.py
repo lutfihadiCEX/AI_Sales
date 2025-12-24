@@ -36,7 +36,7 @@ def run_prediction(df: pd.DataFrame) -> pd.DataFrame:
 
     df_processed["lr_predicted_sales"] = lr_model.predict(X)
     df_processed["rf_predicted_sales"] = rf_model.predict(X)
-    df_processed["rf_predicted_sales"] = xgb_model.predict(X)
+    df_processed["xgb_predicted_sales"] = xgb_model.predict(X)
 
     return df_processed
 
@@ -47,5 +47,5 @@ if __name__ == "__main__":
     predictions = run_prediction(raw_df)
 
     print(predictions[
-        ["order_id", "total_sales", "lr_predicted_sales", "rf_predicted_sales", "is_anomaly"]
+        ["order_id", "total_sales", "lr_predicted_sales", "rf_predicted_sales", "xgb_predicted_sales", "is_anomaly"]
     ].head())
