@@ -10,9 +10,10 @@ def load_models():
     """Load trained models/encoders"""
     lr_model = joblib.load(MODELS_DIR / "linear_regression_model.pkl")
     rf_model = joblib.load(MODELS_DIR / "random_forest_model.pkl")
+    xgb_model = joblib.load(MODELS_DIR / "xgboost_model.pkl" )
     encoders = joblib.load(MODELS_DIR / "encoders.pkl")
 
-    return lr_model, rf_model, encoders
+    return lr_model, rf_model, xgb_model, encoders
 
 def run_prediction(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -31,10 +32,11 @@ def run_prediction(df: pd.DataFrame) -> pd.DataFrame:
 
     X = df_processed.drop(columns=[c for c in drop_cols if c in df_processed.columns])
 
-    lr_model, rf_model, _ = load_models()
+    lr_model, rf_model, xgb_model, _ = load_models()
 
     df_processed["lr_predicted_sales"] = lr_model.predict(X)
     df_processed["rf_predicted_sales"] = rf_model.predict(X)
+    df_processed["rf_predicted_sales"] = xgb_model.predict(X)
 
     return df_processed
 
