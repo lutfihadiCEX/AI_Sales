@@ -1,65 +1,124 @@
 from pathlib import Path
+from typing import Dict, Tuple
 import pandas as pd
+import joblib
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error, r2_score
 from xgboost import XGBRegressor
-import joblib
+
 from src.data.load_data import load_sales_data
 from src.data.preprocess import preprocess_sales_data
 
 
-def train_models():
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MODELS_DIR = PROJECT_ROOT / "models"
 
-    df_raw = load_sales_data()
-    df, encoders = preprocess_sales_data(df_raw)
-
-    # Features and target
-    X = df.drop(columns=['order_id', 'order_date', 'total_sales', 'is_anomaly', 'product_name'])
-    y = df['total_sales']
-
-    # TT-Split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Simple Linear Regression
-    lr_model = LinearRegression()
-    lr_model.fit(X_train, y_train)
-    y_pred_lr = lr_model.predict(X_test)
-
-    # Random Forest
-    rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf_model.fit(X_train, y_train)
-    y_pred_rf = rf_model.predict(X_test)
-
-    # XGB 
-    xgb_model = XGBRegressor(n_estimators=300, learning_rate=0.05, max_depth=6, subsample=0.8, colsample_bytree=0.8,
-                             objective="reg:squarederror", random_state=42)
-    xgb_model.fit(X_train, y_train)
-    y_pred_xgb = xgb_model.predict(X_test)
-
-    # Simple eval
-    print("Linear Regression RMSE:", root_mean_squared_error(y_test, y_pred_lr))
-    print("Linear Regression R2:", r2_score(y_test, y_pred_lr))
-
-    print("Random Forest RMSE:", root_mean_squared_error(y_test, y_pred_rf))
-    print("Random Forest R2:", r2_score(y_test, y_pred_rf))
-
-    print("\nXGBoost RMSE:", root_mean_squared_error(y_test, y_pred_xgb))
-    print("XGBoost R2:", r2_score(y_test, y_pred_xgb))
-
-    models_path = Path(__file__).resolve().parents[2] / "models"
-    models_path.mkdir(parents=True, exist_ok=True)
-
-    # Save for use
-    joblib.dump(lr_model, models_path / "linear_regression_model.pkl")
-    joblib.dump(rf_model, models_path / "random_forest_model.pkl")
-    joblib.dump(xgb_model, models_path / "xgboost_model.pkl")
-    joblib.dump(encoders, models_path / "encoders.pkl")
+TARGET_COLUMN = "total_sales"
+DROP_COLUMNS = (
+    "order_id",
+    "order_date",
+    "product_name",
+    "is_anomaly",
+    TARGET_COLUMN,
+)
 
 
-    return lr_model, rf_model, xgb_model, encoders
+def split_features_target(df: pd.DataFrame,) -> Tuple[pd.DataFrame, pd.Series]:
+    """Split DataFrame into features and target."""
+    X = df.drop(columns=list(DROP_COLUMNS))
+    y = df[TARGET_COLUMN]
+    return X, y
+
+
+def get_models() -> Dict[str, object]:
+    """Initialize models."""
+    return {
+        "linear_regression": LinearRegression(),
+        "random_forest": RandomForestRegressor(
+            n_estimators=100,
+            random_state=42,
+        ),
+        "xgboost": XGBRegressor(
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=6,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective="reg:squarederror",
+            random_state=42,
+        ),
+    }
+
+
+def evaluate_model(y_true: pd.Series, y_pred: pd.Series,) -> Dict[str, float]:
+    """Evaluate regression performance."""
+    return {
+        "rmse": root_mean_squared_error(y_true, y_pred),
+        "r2": r2_score(y_true, y_pred),
+    }
+
+
+def train_and_evaluate(models: Dict[str, object],
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.Series,
+    y_test: pd.Series,
+) -> Dict[str, Dict[str, float]]:
+    """Train models and return evaluation metrics."""
+    results = {}
+
+    for name, model in models.items():
+        model.fit(X_train, y_train)
+        predictions = model.predict(X_test)
+
+        metrics = evaluate_model(y_test, predictions)
+        results[name] = metrics
+
+        print(f"\n{name.upper()}")
+        print(f"RMSE: {metrics['rmse']:.4f}")
+        print(f"R2:   {metrics['r2']:.4f}")
+
+    return results
+
+
+def save_artifacts(models: Dict[str, object], encoders: Dict,) -> None:
+    """Persist trained models and encoders."""
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+    for name, model in models.items():
+        joblib.dump(model, MODELS_DIR / f"{name}.pkl")
+
+    joblib.dump(encoders, MODELS_DIR / "encoders.pkl")
+
+
+def train_models() -> Dict[str, object]:
+    """Main training pipeline."""
+    raw_df = load_sales_data()
+    processed_df, encoders = preprocess_sales_data(raw_df)
+
+    X, y = split_features_target(processed_df)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    models = get_models()
+
+    train_and_evaluate(
+        models,
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+    )
+
+    save_artifacts(models, encoders)
+
+    return models
 
 
 if __name__ == "__main__":
-    lr, rf, xgb, encoders = train_models()
+    trained_models = train_models()
