@@ -1,41 +1,74 @@
+from pathlib import Path
+from typing import Iterable, Dict, Tuple
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from pathlib import Path
 from src.data.load_data import load_sales_data
 
-def preprocess_sales_data(df: pd.DataFrame) -> pd.DataFrame:
+
+CATEGORICAL_COLUMNS: tuple[str, ...] = (
+    "region",
+    "country",
+    "product_category",
+    "product_subcategory",
+    "customer_segment",
+    "marketing_channel",
+)
+
+
+def add_date_features(df: pd.DataFrame, date_column: str) -> None:
+    """Add year, month, and quarter features."""
+    df[date_column] = pd.to_datetime(df[date_column], errors="coerce")
+
+    df["order_year"] = df[date_column].dt.year
+    df["order_month"] = df[date_column].dt.month
+    df["order_quarter"] = df[date_column].dt.quarter
+
+
+def encode_categorical_features(df: pd.DataFrame, columns: Iterable[str],) -> Dict[str, LabelEncoder]:
+    """Encode categorical columns and return encoders."""
+    encoders: Dict[str, LabelEncoder] = {}
+
+    for col in columns:
+        if col not in df.columns:
+            raise KeyError(f"Missing categorical column: {col}")
+
+        encoder = LabelEncoder()
+        df[col] = encoder.fit_transform(df[col])
+        encoders[col] = encoder
+
+    return encoders
+
+
+def flag_anomalies(df: pd.DataFrame, target_column: str, sigma: float = 3.0,) -> None:
+    """Flag anomalies using mean ± sigma * std."""
+    mean = df[target_column].mean()
+    std = df[target_column].std()
+
+    threshold = mean + sigma * std
+    df["is_anomaly"] = df[target_column] > threshold
+
+
+def preprocess_sales_data(df: pd.DataFrame,) -> Tuple[pd.DataFrame, Dict[str, LabelEncoder]]:
     """
-    Preprocess the sales dataset:
-    - Feature engineering (month, quarter, year)
-    - Encode categorical columns
-    
+    Apply feature engineering, encoding, and anomaly detection.
     """
+    processed_df = df.copy()
 
-    df = df.copy()
+    add_date_features(processed_df, "order_date")
 
-    df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-    df['order_year'] = df['order_date'].dt.year
-    df['order_month'] = df['order_date'].dt.month
-    df['order_quarter'] = df['order_date'].dt.quarter
+    encoders = encode_categorical_features(
+        processed_df,
+        CATEGORICAL_COLUMNS,
+    )
 
-    # Encoding stage
-    categorical_cols = ['region', 'country', 'product_category',
-                        'product_subcategory', 'customer_segment', 'marketing_channel']
-    
-    le_dict = {}
-    for col in categorical_cols:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col])
-        le_dict[col] = le # optional for inverse transform
+    flag_anomalies(processed_df, "total_sales")
 
-    # Anomalies flagged
-    threshold = df['total_sales'].mean() + 3 * df['total_sales'].std()
-    df['is_anomaly'] = df['total_sales'] > threshold
+    return processed_df, encoders
 
-    return df, le_dict
 
 if __name__ == "__main__":
     raw_df = load_sales_data()
     processed_df, encoders = preprocess_sales_data(raw_df)
+
     print(processed_df.head())
     print(f"Columns after preprocessing: {processed_df.columns.tolist()}")
