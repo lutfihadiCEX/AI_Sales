@@ -20,7 +20,9 @@ def run_prediction(df: pd.DataFrame) -> pd.DataFrame:
     Prediction on new datasets. Returns in dataframe form
 
     """
-    df_processed, _ = preprocess_sales_data(df)
+    lr_model, rf_model, xgb_model, encoders = load_models()
+
+    df_processed, _ = preprocess_sales_data(df, encoders=encoders)
 
     drop_cols = [
         "order_id",
@@ -31,8 +33,6 @@ def run_prediction(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     X = df_processed.drop(columns=[c for c in drop_cols if c in df_processed.columns])
-
-    lr_model, rf_model, xgb_model, _ = load_models()
 
     df_processed["lr_predicted_sales"] = lr_model.predict(X)
     df_processed["rf_predicted_sales"] = rf_model.predict(X)
