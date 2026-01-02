@@ -25,7 +25,7 @@ def add_date_features(df: pd.DataFrame, date_column: str) -> None:
 
 
 def encode_categorical_features(df: pd.DataFrame, columns: Iterable[str],) -> Dict[str, LabelEncoder]:
-    """Encode categorical columns and return encoders."""
+    """Encode categorical columns  and return encoders."""
     encoders: Dict[str, LabelEncoder] = {}
 
     for col in columns:
@@ -48,7 +48,7 @@ def flag_anomalies(df: pd.DataFrame, target_column: str, sigma: float = 3.0,) ->
     df["is_anomaly"] = df[target_column] > threshold
 
 
-def preprocess_sales_data(df: pd.DataFrame,) -> Tuple[pd.DataFrame, Dict[str, LabelEncoder]]:
+def preprocess_sales_data(df: pd.DataFrame, encoders: Dict[str, LabelEncoder] = None) -> Tuple[pd.DataFrame, Dict[str, LabelEncoder]]:
     """
     Apply feature engineering, encoding, and anomaly detection.
     """
@@ -56,10 +56,14 @@ def preprocess_sales_data(df: pd.DataFrame,) -> Tuple[pd.DataFrame, Dict[str, La
 
     add_date_features(processed_df, "order_date")
 
-    encoders = encode_categorical_features(
-        processed_df,
-        CATEGORICAL_COLUMNS,
-    )
+
+    if encoders is None:
+        encoders = encode_categorical_features(processed_df, CATEGORICAL_COLUMNS,)  # Training mode
+    
+    else:
+        for col in CATEGORICAL_COLUMNS:
+            if col in processed_df.columns:
+                processed_df[col] = encoders[col].transform(processed_df[col])
 
     flag_anomalies(processed_df, "total_sales")
 
